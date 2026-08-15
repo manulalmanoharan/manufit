@@ -2,7 +2,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { FaWhatsapp } from 'react-icons/fa'
 
 export default function FloatingWhatsApp() {
-  const phoneNumber = '+1 (555) 123-4567'
   const message = 'Hi! I would like to book a free consultation.'
 
   const handleClick = () => {

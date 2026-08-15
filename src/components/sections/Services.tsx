@@ -1,11 +1,11 @@
 import { motion } from 'framer-motion'
 import {
-  MdFitnessCenterOutlined,
+  MdFitnessCenter,
   MdDirectionsRun,
-  MdEmojiFoodActivityOutlined,
+  MdSelfImprovement,
   MdOutlineMonitor,
   MdOutlineRestaurant,
-  MdStrengthOutlined,
+  MdBolt,
 } from 'react-icons/md'
 import { FiArrowRight } from 'react-icons/fi'
 
@@ -13,7 +13,7 @@ export default function Services() {
   const services = [
     {
       id: 1,
-      icon: MdFitnessCenterOutlined,
+      icon: MdFitnessCenter,
       title: 'Personal Training',
       description: 'One-on-one customized workout programs designed specifically for your goals and fitness level.',
       color: 'from-primary-500 to-orange-500',
@@ -27,7 +27,7 @@ export default function Services() {
     },
     {
       id: 3,
-      icon: MdStrengthOutlined,
+      icon: MdBolt,
       title: 'Muscle Building',
       description: 'Progressive strength training programs to build lean muscle mass and improve body composition.',
       color: 'from-yellow-500 to-orange-500',
@@ -48,7 +48,7 @@ export default function Services() {
     },
     {
       id: 6,
-      icon: MdEmojiFoodActivityOutlined,
+      icon: MdSelfImprovement,
       title: 'Strength & Conditioning',
       description: 'Specialized training for athletic performance, power development, and functional fitness.',
       color: 'from-purple-500 to-pink-500',

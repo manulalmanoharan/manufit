@@ -5,7 +5,7 @@ import {
   MdSchedule,
   MdSupport,
   MdOutlineTrendingUp,
-  MdEmojiFoodActivityOutlined,
+  MdOutlineRestaurant,
 } from 'react-icons/md'
 
 export default function WhyChoose() {
@@ -42,7 +42,7 @@ export default function WhyChoose() {
     },
     {
       id: 6,
-      icon: MdEmojiFoodActivityOutlined,
+      icon: MdOutlineRestaurant,
       title: 'Nutrition Expertise',
       description: 'Comprehensive nutrition planning and guidance integrated with your training program.',
     },

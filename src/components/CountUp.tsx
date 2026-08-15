@@ -19,7 +19,7 @@ export default function CountUp({
   const [count, setCount] = useState(0)
   const ref = useRef(null)
   const inView = useInView(ref, { once: true })
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     if (inView && count === 0) {

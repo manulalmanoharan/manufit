@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import { MdZoomIn } from 'react-icons/md'
-import { useState } from 'react'
 
 export default function Gallery() {
   const galleryImages = [
@@ -41,8 +40,6 @@ export default function Gallery() {
       category: 'Group Classes',
     },
   ]
-
-  const [selectedImage, setSelectedImage] = useState<number | null>(null)
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -110,9 +107,8 @@ export default function Gallery() {
           {galleryImages.map((item) => (
             <motion.div
               key={item.id}
-              className="group relative h-72 rounded-xl overflow-hidden cursor-pointer"
+              className="group relative h-72 rounded-xl overflow-hidden"
               variants={itemVariants}
-              onClick={() => setSelectedImage(item.id)}
             >
               {/* Image */}
               <img

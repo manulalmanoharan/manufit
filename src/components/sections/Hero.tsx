@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { FiArrowRight } from 'react-icons/fi'
-import CountUp from './CountUp'
+import CountUp from '../CountUp'
 
 export default function Hero() {
   return (
