@@ -84,7 +84,7 @@ export default function Navbar() {
               href="/dailytrack"
               className="text-primary-400 hover:text-primary-300 cursor-pointer transition font-semibold text-sm"
             >
-              Daily Track
+              Daily Tracker
             </a>
             <a href="/monthlytrack" className="text-primary-400 hover:text-primary-300 cursor-pointer transition font-semibold text-sm">Monthly Track</a>
           </div>
@@ -137,7 +137,7 @@ export default function Navbar() {
               className="text-primary-400 hover:text-primary-300 cursor-pointer transition font-medium py-2 border-b border-dark-700"
               onClick={() => setIsOpen(false)}
             >
-              Daily Track
+              Daily Tracker
             </a>
             <a href="/monthlytrack" className="text-primary-400 hover:text-primary-300 cursor-pointer transition font-medium py-2 border-b border-dark-700" onClick={() => setIsOpen(false)}>Monthly Track</a>
             <button className="mt-4 w-full px-4 py-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white font-semibold rounded-lg btn-glow">
