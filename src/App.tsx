@@ -3,7 +3,7 @@ import MonthlyTrack from './features/monthlytrack/MonthlyTrack'
 import NewHero from './components/NewHero'
 import NewNavbar from './components/NewNavbar'
 import { AuthProvider, Login, ProtectedApp, useAuth } from './auth'
-import { FiBarChart2, FiCalendar, FiLogOut } from 'react-icons/fi'
+import { FiBarChart2, FiCalendar, FiLogOut, FiUser } from 'react-icons/fi'
 
 type TrackerRecord = {
   date: string
@@ -11,6 +11,7 @@ type TrackerRecord = {
   sleep: string
   stress: string
   training: string
+  submitted_by?: string
 }
 
 type TrackerCategory = {
@@ -75,10 +76,22 @@ function DailyTrack({ view = 'list' }: { view?: 'list' | 'form' }) {
   const [saveMessage, setSaveMessage] = useState('Today\'s check-in is saved.')
   const [selectedDate, setSelectedDate] = useState(getToday())
   const [modalOpen, setModalOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+
+  const PAGE_SIZE = 10
 
   useEffect(() => {
     getDashboard(roomId ? Number(roomId) : undefined).then((dashboard) => setRecords(dashboard.daily as TrackerRecord[])).catch(() => setRecords([]))
   }, [])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [records.length])
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE))
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, records.length])
 
   useEffect(() => {
     const existing = records.find((record) => record.date === selectedDate)
@@ -112,6 +125,9 @@ function DailyTrack({ view = 'list' }: { view?: 'list' | 'form' }) {
 
   const openSuccessModal = (message: string) => {
     setSaveMessage(message)
+    setSelections({ food: '', sleep: '', stress: '', training: '' })
+    setEditingDate(null)
+    setSaved(true)
     setModalOpen(true)
   }
 
@@ -139,19 +155,14 @@ function DailyTrack({ view = 'list' }: { view?: 'list' | 'form' }) {
   }
 
   const hasSelections = Object.values(selections).every(Boolean)
+  const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE))
+  const pageRecords = records.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   const showForm = view === 'form'
 
   return (
     <main className="tracker-page">
       <div className="tracker-shell">
-        <header className="tracker-header">
-          <div className="eyebrow"><span className="eyebrow-dot" /> DAILY CHECK-IN</div>
-          <h1>Keep a pulse on your day.</h1>
-          <p>A few honest taps today can make tomorrow feel a little clearer.</p>
-          <div className="today-chip">{formatDate(selectedDate)}</div>
-        </header>
-
         {showForm && (
           <section className="tracker-form" aria-label="Daily tracker form">
             <div className="daily-date-picker-wrap">
@@ -199,12 +210,12 @@ function DailyTrack({ view = 'list' }: { view?: 'list' | 'form' }) {
         )}
 
         {modalOpen && (
-          <div className="tracker-modal-backdrop" onClick={() => setModalOpen(false)}>
+          <div className="tracker-modal-backdrop" onClick={() => { setModalOpen(false); setSaved(false) }}>
             <div className="tracker-modal" onClick={(event) => event.stopPropagation()}>
               <div className="tracker-modal-icon">✓</div>
               <h3>Success</h3>
               <p>{saveMessage}</p>
-              <button type="button" className="tracker-modal-button" onClick={() => setModalOpen(false)}>
+              <button type="button" className="tracker-modal-button" onClick={() => { setModalOpen(false); setSaved(false) }}>
                 OK
               </button>
             </div>
@@ -213,11 +224,39 @@ function DailyTrack({ view = 'list' }: { view?: 'list' | 'form' }) {
 
         {!showForm && (
           <section className="history-section" aria-labelledby="history-title">
-            <div className="history-heading"><div><div className="eyebrow"><span className="eyebrow-dot" /> YOUR LOG</div><h2 id="history-title">Daily history</h2></div><span className="record-count">{records.length} {records.length === 1 ? 'day' : 'days'}</span></div>
+            <div className="history-heading"><div><h2 id="history-title">Daily history</h2></div><span className="record-count">{records.length} {records.length === 1 ? 'day' : 'days'}</span></div>
             {records.length === 0 ? <p className="empty-history">Your saved check-ins will appear here.</p> : (
-              <div className="history-table-wrap"><table><thead><tr><th>Date</th><th>Food</th><th>Sleep</th><th>Stress</th><th>Training</th><th>Action</th></tr></thead><tbody>
-                {records.map((record) => <tr key={record.date}><td>{formatDate(record.date)}</td><td>{record.food}</td><td>{record.sleep}</td><td>{record.stress}</td><td>{record.training}</td><td><button className="edit-button" onClick={() => editRecord(record)} type="button">Edit</button></td></tr>)}
-              </tbody></table></div>
+              <>
+                <div className="history-table-wrap"><table><thead><tr><th>Submitted by</th><th>Date</th><th>Food</th><th>Sleep</th><th>Stress</th><th>Training</th><th>Action</th></tr></thead><tbody>
+                  {pageRecords.map((record) => {
+                    const trainingStatus = record.training === 'Completed' ? 'success' : record.training === 'Not completed' ? 'danger' : 'neutral'
+                    const submittedBy = record.submitted_by || 'Client'
+                    return (
+                      <tr key={record.date}>
+                        <td>{submittedBy}</td>
+                        <td>{formatDate(record.date)}</td>
+                        <td>{record.food}</td>
+                        <td>{record.sleep}</td>
+                        <td>{record.stress}</td>
+                        <td>
+                          <span className={`training-badge ${trainingStatus}`}>
+                            {record.training === 'Completed' ? 'Completed' : record.training === 'Not completed' ? 'Not completed' : record.training}
+                          </span>
+                        </td>
+                        <td><button className="edit-button" onClick={() => editRecord(record)} type="button">Edit</button></td>
+                      </tr>
+                    )
+                  })}
+                </tbody></table></div>
+
+                {records.length > PAGE_SIZE && (
+                  <div className="history-pagination" aria-label="Daily track pagination">
+                    <button type="button" className="pager-button" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>Previous</button>
+                    <span className="pager-status">Page {currentPage} of {totalPages}</span>
+                    <button type="button" className="pager-button" disabled={currentPage === totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}>Next</button>
+                  </div>
+                )}
+              </>
             )}
           </section>
         )}
@@ -321,9 +360,8 @@ function DashboardShell({ initialTab, initialDailyView }: { initialTab?: 'daily'
 
       <main className="admin-content">
         <header className="admin-topbar">
-          <div>
-            <p className="admin-kicker">WELCOME BACK</p>
-            <h1>{user?.email ? user.email.split('@')[0] : 'Client'}</h1>
+          <div className="admin-user-pill" aria-label="User profile">
+            <span className="admin-user-icon"><FiUser size={16} /></span>
           </div>
         </header>
 

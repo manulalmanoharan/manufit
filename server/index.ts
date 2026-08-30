@@ -44,7 +44,7 @@ db.exec(`
   PRAGMA foreign_keys = ON;
   CREATE TABLE IF NOT EXISTS profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER UNIQUE NOT NULL, name TEXT NOT NULL, goal TEXT DEFAULT '', phone TEXT DEFAULT '', FOREIGN KEY(client_id) REFERENCES users(id) ON DELETE CASCADE);
   CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL COLLATE NOCASE, password_hash TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('trainer', 'client')), client_id INTEGER, temp_password INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
-  CREATE TABLE IF NOT EXISTS daily_tracking (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, date TEXT NOT NULL, food TEXT NOT NULL, sleep TEXT NOT NULL, stress TEXT NOT NULL, training TEXT NOT NULL, UNIQUE(client_id, date), FOREIGN KEY(client_id) REFERENCES users(id) ON DELETE CASCADE);
+  CREATE TABLE IF NOT EXISTS daily_tracking (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, date TEXT NOT NULL, food TEXT NOT NULL, sleep TEXT NOT NULL, stress TEXT NOT NULL, training TEXT NOT NULL, submitted_by TEXT NOT NULL DEFAULT 'Client', UNIQUE(client_id, date), FOREIGN KEY(client_id) REFERENCES users(id) ON DELETE CASCADE);
   CREATE TABLE IF NOT EXISTS monthly_tracking (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, date TEXT NOT NULL, weight REAL NOT NULL, weight_unit TEXT NOT NULL, waist REAL NOT NULL, waist_unit TEXT NOT NULL, chest REAL, hips REAL, arms REAL, thighs REAL, photos TEXT NOT NULL DEFAULT '[]', UNIQUE(client_id, date), FOREIGN KEY(client_id) REFERENCES users(id) ON DELETE CASCADE);
   CREATE TABLE IF NOT EXISTS slots (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, starts_at TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'upcoming', FOREIGN KEY(client_id) REFERENCES users(id) ON DELETE CASCADE);
   CREATE TABLE IF NOT EXISTS progress_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(client_id) REFERENCES users(id) ON DELETE CASCADE);
@@ -143,8 +143,9 @@ app.get('/api/dashboard', requireAuth, (req: AuthRequest, res) => {
 app.put('/api/daily/:date', requireAuth, (req: AuthRequest, res) => {
   const clientId = scopedClientId(req, req.body.clientId)
   if (!clientId) return res.status(400).json({ error: 'Client room is required' })
-  const values = [clientId, req.params.date, String(req.body.food), String(req.body.sleep), String(req.body.stress), String(req.body.training)]
-  db.prepare(`INSERT INTO daily_tracking (client_id, date, food, sleep, stress, training) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(client_id, date) DO UPDATE SET food=excluded.food, sleep=excluded.sleep, stress=excluded.stress, training=excluded.training`).run(...values)
+  const submittedBy = req.user?.email ?? 'Client'
+  const values = [clientId, req.params.date, String(req.body.food), String(req.body.sleep), String(req.body.stress), String(req.body.training), submittedBy]
+  db.prepare(`INSERT INTO daily_tracking (client_id, date, food, sleep, stress, training, submitted_by) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(client_id, date) DO UPDATE SET food=excluded.food, sleep=excluded.sleep, stress=excluded.stress, training=excluded.training, submitted_by=excluded.submitted_by`).run(...values)
   return res.json({ ok: true })
 })
 

@@ -63,17 +63,17 @@ button:focus, input:focus, textarea:focus, select:focus { outline: 2px solid #f9
 button { font: inherit; }
 button:focus-visible { outline: 3px solid #e47d51; outline-offset: 3px; }
 
-.tracker-page { min-height: 100vh; padding: 56px 20px 80px; background: radial-gradient(circle at 10% 0%, #e1eee4 0, transparent 30%), #f4f3ef; color: #24322d; font-family: 'DM Sans', sans-serif; }
+.tracker-page { min-height: 100vh; padding: 10px 20px 80px; background: radial-gradient(circle at 10% 0%, #e1eee4 0, transparent 30%), #f4f3ef; color: #24322d; font-family: 'DM Sans', sans-serif; }
 .tracker-shell { max-width: 920px; margin: 0 auto; }
-.tracker-header { position: relative; padding: 12px 0 46px; }
+.tracker-header { position: relative; padding: 0; }
 .eyebrow { display: flex; align-items: center; gap: 9px; color: #e26f45; font-size: 11px; font-weight: 700; letter-spacing: .14em; }
 .eyebrow-dot { width: 7px; height: 7px; background: #e26f45; border-radius: 50%; }
 .tracker-page h1, .tracker-page h2 { font-family: 'Space Grotesk', sans-serif; }
 .tracker-page h1 { max-width: 590px; margin: 18px 0 12px; color: #24322d; font-size: clamp(2.7rem, 6vw, 5.2rem); line-height: .98; letter-spacing: -0.04em; }
 .tracker-header p { max-width: 430px; margin: 0; color: #69766e; font-size: 16px; line-height: 1.6; }
 .today-chip { position: absolute; top: 18px; right: 0; padding: 10px 15px; border: 1px solid #d9ddd6; border-radius: 999px; color: #536158; background: rgba(255,255,255,.55); font-size: 13px; font-weight: 600; }
-.tracker-form { padding: 30px; border: 1px solid #e1e4de; background: rgba(255,255,255,.74); box-shadow: 0 20px 60px rgba(56, 78, 62, .08); }
-.daily-date-picker-wrap { margin-bottom: 16px; }
+.tracker-form { padding: 18px 30px 30px; border: 1px solid #e1e4de; background: rgba(255,255,255,.74); box-shadow: 0 20px 60px rgba(56, 78, 62, .08); }
+.daily-date-picker-wrap { margin-bottom: 8px; }
 .daily-date-picker { display: grid; gap: 8px; color: #536158; font-size: 12px; font-weight: 700; }
 .daily-date-picker input { width: min(220px, 100%); min-height: 42px; padding: 0 12px; border: 1px solid #dfe4de; border-radius: 6px; background: #fbfcfa; color: #2d3c35; }
 .daily-action-row { display: flex; gap: 12px; margin-top: 28px; }
@@ -103,15 +103,23 @@ button:focus-visible { outline: 3px solid #e47d51; outline-offset: 3px; }
 .save-button span:last-child { font-size: 23px; font-weight: 400; line-height: 12px; }
 .save-message { height: 0; margin: 0; overflow: hidden; color: #315b47; font-size: 13px; text-align: center; opacity: 0; transition: opacity .2s, height .2s, margin .2s; }
 .save-message.visible { height: 20px; margin: 14px 0 -4px; opacity: 1; }
-.history-section { padding: 70px 0 0; }
+.history-section { padding: 0 0 0; }
 .history-heading { display: flex; align-items: end; justify-content: space-between; margin-bottom: 20px; }
 .history-heading h2 { margin-top: 10px; font-size: 30px; }
 .record-count { color: #89958c; font-size: 13px; }
 .history-table-wrap { overflow-x: auto; border-top: 2px solid #315b47; }
+.history-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; padding-top: 18px; }
+.pager-button { padding: 8px 14px; border: 1px solid #dfe4de; border-radius: 8px; background: #fff; color: #2d3c35; font-size: 12px; font-weight: 700; cursor: pointer; }
+.pager-button:disabled { cursor: not-allowed; opacity: 0.45; }
+.pager-status { color: #536158; font-size: 12px; font-weight: 700; }
 table { width: 100%; min-width: 640px; border-collapse: collapse; text-align: left; }
 th { padding: 15px 12px 12px; color: #89958c; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
 td { padding: 17px 12px; border-top: 1px solid #e1e5df; color: #536158; font-size: 13px; }
 td:first-child { color: #2d3c35; font-weight: 700; }
+.training-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 120px; padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.training-badge.success { background: rgba(40, 167, 69, 0.12); color: #1a7f42; }
+.training-badge.danger { background: rgba(220, 53, 69, 0.12); color: #b3323c; }
+.training-badge.neutral { background: rgba(245, 190, 66, 0.2); color: #8a6700; }
 .edit-button { padding: 6px 10px; border: 1px solid #315b47; border-radius: 4px; color: #315b47; background: transparent; cursor: pointer; font-size: 12px; font-weight: 700; }
 .edit-button:hover { color: #fff; background: #315b47; }
 .empty-history { padding: 26px 0; border-top: 1px solid #dce2db; color: #89958c; font-size: 14px; }
@@ -167,7 +175,9 @@ td:first-child { color: #2d3c35; font-weight: 700; }
 .admin-submenu-item.active { background: rgba(225, 145, 111, 0.12); color: #fff; border-color: rgba(225,145,111,0.18); }
 .admin-logout { display: inline-flex; align-items: center; gap: 10px; margin-top: 28px; padding: 12px 14px; border: 0; border-radius: 12px; background: rgba(255,255,255,0.04); color: #fff; cursor: pointer; }
 .admin-content { flex: 1; padding: 30px 28px 40px; }
-.admin-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.admin-topbar { display: flex; align-items: center; justify-content: flex-end; margin-bottom: 16px; }
+.admin-user-pill { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 50%; background: #1f2a2d; box-shadow: 0 8px 18px rgba(31, 42, 45, 0.18); }
+.admin-user-icon { display: inline-flex; color: #fff; }
 .admin-kicker { color: #8a847e; font-size: 11px; font-weight: 700; letter-spacing: .12em; }
 .admin-topbar h1 { margin: 8px 0 0; color: #2f3d39; font: 600 clamp(2rem, 4vw, 3rem) 'Fraunces', serif; }
 .admin-panel { border: 1px solid #e7e0d6; border-radius: 18px; background: rgba(255,255,255,0.7); overflow: hidden; }
