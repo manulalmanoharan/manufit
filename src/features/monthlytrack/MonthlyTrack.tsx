@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useAuth } from '../../auth'
 
 type MonthlyRecord = {
   client_id: string
@@ -15,7 +16,6 @@ type MonthlyRecord = {
   photos: { label: string; file_ref: string }[]
 }
 
-const MONTHLY_STORAGE_KEY = 'monthly-tracker-records'
 const getToday = () => new Date().toISOString().slice(0, 10)
 
 const formatDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
@@ -34,15 +34,15 @@ const toNumberOrNull = (value: string) => value === '' ? null : Number(value)
 type MonthlyForm = typeof emptyMonthlyForm
 
 function MonthlyTrack() {
+  const { getDashboard } = useAuth()
+  const roomId = new URLSearchParams(window.location.search).get('clientId')
   const [form, setForm] = useState<MonthlyForm>(emptyMonthlyForm)
   const [records, setRecords] = useState<MonthlyRecord[]>([])
   const [saved, setSaved] = useState(false)
   const [editingDate, setEditingDate] = useState<string | null>(null)
 
   useEffect(() => {
-    const stored = localStorage.getItem(MONTHLY_STORAGE_KEY)
-    if (!stored) return
-    try { setRecords(JSON.parse(stored) as MonthlyRecord[]) } catch { localStorage.removeItem(MONTHLY_STORAGE_KEY) }
+    getDashboard(roomId ? Number(roomId) : undefined).then((dashboard) => setRecords(dashboard.monthly as MonthlyRecord[])).catch(() => setRecords([]))
   }, [])
 
   const updateForm = (field: keyof MonthlyForm, value: string) => {
@@ -65,12 +65,9 @@ function MonthlyTrack() {
   const saveEntry = () => {
     if (!form.weight || !form.waist) return
     const date = editingDate ?? form.date
-    const entry: MonthlyRecord = { client_id: 'default-client', date, weight: Number(form.weight), weight_unit: form.weightUnit, waist: Number(form.waist), waist_unit: form.waistUnit, chest: toNumberOrNull(form.chest), hips: toNumberOrNull(form.hips), arms: toNumberOrNull(form.arms), thighs: toNumberOrNull(form.thighs), photos: form.photos }
+    const entry: MonthlyRecord = { client_id: '', date, weight: Number(form.weight), weight_unit: form.weightUnit, waist: Number(form.waist), waist_unit: form.waistUnit, chest: toNumberOrNull(form.chest), hips: toNumberOrNull(form.hips), arms: toNumberOrNull(form.arms), thighs: toNumberOrNull(form.thighs), photos: form.photos }
     const nextRecords = [...records.filter((record) => record.date !== date), entry].sort((a, b) => a.date.localeCompare(b.date))
-    setRecords(nextRecords)
-    localStorage.setItem(MONTHLY_STORAGE_KEY, JSON.stringify(nextRecords))
-    setSaved(true)
-    setEditingDate(null)
+    fetch(`http://localhost:8787/api/monthly/${date}`, { method: 'PUT', headers: { Authorization: `Bearer ${localStorage.getItem('manufit-token') ?? ''}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ ...entry, clientId: roomId ? Number(roomId) : undefined, weightUnit: entry.weight_unit, waistUnit: entry.waist_unit }) }).then((response) => { if (!response.ok) throw new Error('save failed'); setRecords(nextRecords); setSaved(true); setEditingDate(null) }).catch(() => setSaved(false))
   }
 
   const addPhoto = (label: string, file: File | undefined) => {

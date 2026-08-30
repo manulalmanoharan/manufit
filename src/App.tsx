@@ -1,21 +1,9 @@
 import { useEffect, useState } from 'react'
-import Navbar from './components/Navbar'
-import Hero from './components/sections/Hero'
-import About from './components/sections/About'
-import Services from './components/sections/Services'
-import Transformations from './components/sections/Transformations'
-import Programs from './components/sections/Programs'
-import Testimonials from './components/sections/Testimonials'
-import WhyChoose from './components/sections/WhyChoose'
-import Gallery from './components/sections/Gallery'
-import FAQ from './components/sections/FAQ'
-import Contact from './components/sections/Contact'
-import CTA from './components/sections/CTA'
-import Footer from './components/Footer'
-import FloatingWhatsApp from './components/FloatingWhatsApp'
-import ScrollToTop from './components/ScrollToTop'
-import ThemeToggle from './components/ThemeToggle'
 import MonthlyTrack from './features/monthlytrack/MonthlyTrack'
+import NewHero from './components/NewHero'
+import NewNavbar from './components/NewNavbar'
+import { AuthProvider, Login, ProtectedApp, useAuth } from './auth'
+import { FiBarChart2, FiCalendar, FiLogOut } from 'react-icons/fi'
 
 type TrackerRecord = {
   date: string
@@ -32,8 +20,6 @@ type TrackerCategory = {
   question: string
   options: string[]
 }
-
-const STORAGE_KEY = 'daily-tracker-records'
 
 const categories: TrackerCategory[] = [
   {
@@ -74,7 +60,9 @@ const formatDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateSt
   year: 'numeric',
 })
 
-function DailyTrack() {
+function DailyTrack({ view = 'list' }: { view?: 'list' | 'form' }) {
+  const { getDashboard } = useAuth()
+  const roomId = new URLSearchParams(window.location.search).get('clientId')
   const [selections, setSelections] = useState<Omit<TrackerRecord, 'date'>>({
     food: '',
     sleep: '',
@@ -85,36 +73,57 @@ function DailyTrack() {
   const [saved, setSaved] = useState(false)
   const [editingDate, setEditingDate] = useState<string | null>(null)
   const [saveMessage, setSaveMessage] = useState('Today\'s check-in is saved.')
+  const [selectedDate, setSelectedDate] = useState(getToday())
+  const [modalOpen, setModalOpen] = useState(false)
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (!stored) return
-
-    try {
-      setRecords(JSON.parse(stored) as TrackerRecord[])
-    } catch {
-      localStorage.removeItem(STORAGE_KEY)
-    }
+    getDashboard(roomId ? Number(roomId) : undefined).then((dashboard) => setRecords(dashboard.daily as TrackerRecord[])).catch(() => setRecords([]))
   }, [])
+
+  useEffect(() => {
+    const existing = records.find((record) => record.date === selectedDate)
+    if (existing) {
+      setSelections({
+        food: existing.food,
+        sleep: existing.sleep,
+        stress: existing.stress,
+        training: existing.training,
+      })
+      setEditingDate(existing.date)
+      setSaved(false)
+    } else {
+      setSelections({ food: '', sleep: '', stress: '', training: '' })
+      setEditingDate(null)
+      setSaved(false)
+    }
+  }, [selectedDate, records])
 
   const selectOption = (key: keyof typeof selections, value: string) => {
     setSelections((current) => ({ ...current, [key]: value }))
     setSaved(false)
   }
 
+  const resetForm = () => {
+    setSelections({ food: '', sleep: '', stress: '', training: '' })
+    setEditingDate(null)
+    setSaved(false)
+    setSaveMessage('Today\'s check-in is saved.')
+  }
+
+  const openSuccessModal = (message: string) => {
+    setSaveMessage(message)
+    setModalOpen(true)
+  }
+
   const saveToday = () => {
     if (Object.values(selections).some((value) => !value)) return
 
-    const recordDate = editingDate ?? getToday()
+    const recordDate = selectedDate
     const nextRecord = { date: recordDate, ...selections }
     const nextRecords = [...records.filter((record) => record.date !== recordDate), nextRecord]
       .sort((first, second) => second.date.localeCompare(first.date))
 
-    setRecords(nextRecords)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRecords))
-    setSaved(true)
-    setSaveMessage(editingDate ? 'Entry updated.' : 'Today\'s check-in is saved.')
-    setEditingDate(null)
+    fetch(`http://localhost:8787/api/daily/${recordDate}`, { method: 'PUT', headers: { Authorization: `Bearer ${localStorage.getItem('manufit-token') ?? ''}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ ...selections, clientId: roomId ? Number(roomId) : undefined }) }).then((response) => { if (!response.ok) throw new Error('save failed'); setRecords(nextRecords); setSaved(true); setEditingDate(null); setSelections({ food: '', sleep: '', stress: '', training: '' }); openSuccessModal(editingDate ? 'Entry updated successfully.' : 'Today\'s check-in saved successfully.'); }).catch(() => { setSaveMessage('Unable to save this check-in.'); setModalOpen(true) })
   }
 
   const editRecord = (record: TrackerRecord) => {
@@ -131,6 +140,8 @@ function DailyTrack() {
 
   const hasSelections = Object.values(selections).every(Boolean)
 
+  const showForm = view === 'form'
+
   return (
     <main className="tracker-page">
       <div className="tracker-shell">
@@ -138,88 +149,209 @@ function DailyTrack() {
           <div className="eyebrow"><span className="eyebrow-dot" /> DAILY CHECK-IN</div>
           <h1>Keep a pulse on your day.</h1>
           <p>A few honest taps today can make tomorrow feel a little clearer.</p>
-          <div className="today-chip">{formatDate(getToday())}</div>
+          <div className="today-chip">{formatDate(selectedDate)}</div>
         </header>
 
-        <section className="tracker-form" aria-label="Daily tracker form">
-          {categories.map((category, index) => (
-            <article className="tracker-section" key={category.key}>
-              <div className="section-number">0{index + 1}</div>
-              <div className="section-content">
-                <div className="section-title"><span className="section-icon" aria-hidden="true">{category.icon}</span><h2>{category.title}</h2></div>
-                <p className="question">{category.question}</p>
-                <div className={`option-grid option-grid-${category.options.length}`} role="group" aria-label={category.question}>
-                  {category.options.map((option) => (
-                    <button
-                      className={`option-button ${selections[category.key] === option ? 'selected' : ''}`}
-                      key={option}
-                      onClick={() => selectOption(category.key, option)}
-                      type="button"
-                      aria-pressed={selections[category.key] === option}
-                    >
-                      {option}
-                    </button>
-                  ))}
+        {showForm && (
+          <section className="tracker-form" aria-label="Daily tracker form">
+            <div className="daily-date-picker-wrap">
+              <label className="daily-date-picker">
+                <span>Select date</span>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(event) => setSelectedDate(event.target.value || getToday())}
+                />
+              </label>
+            </div>
+            {categories.map((category, index) => (
+              <article className="tracker-section" key={category.key}>
+                <div className="section-number">0{index + 1}</div>
+                <div className="section-content">
+                  <div className="section-title"><span className="section-icon" aria-hidden="true">{category.icon}</span><h2>{category.title}</h2></div>
+                  <p className="question">{category.question}</p>
+                  <div className={`option-grid option-grid-${category.options.length}`} role="group" aria-label={category.question}>
+                    {category.options.map((option) => (
+                      <button
+                        className={`option-button ${selections[category.key] === option ? 'selected' : ''}`}
+                        key={option}
+                        onClick={() => selectOption(category.key, option)}
+                        type="button"
+                        aria-pressed={selections[category.key] === option}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
-          <button className="save-button" disabled={!hasSelections} onClick={saveToday} type="button">
-            <span>{saved ? 'SAVED' : editingDate ? 'UPDATE ENTRY' : 'SAVE TODAY'}</span><span aria-hidden="true">→</span>
-          </button>
-          <p className={`save-message ${saved ? 'visible' : ''}`} role="status">{saveMessage} You can update it anytime.</p>
-        </section>
+              </article>
+            ))}
+            <div className="daily-action-row">
+              <button className="save-button" disabled={!hasSelections} onClick={saveToday} type="button">
+                <span>{saved ? 'SAVED' : editingDate ? 'UPDATE ENTRY' : 'SAVE TODAY'}</span><span aria-hidden="true">→</span>
+              </button>
+              <button className="clear-button" type="button" onClick={resetForm}>
+                Clear
+              </button>
+            </div>
+            <p className={`save-message ${saved ? 'visible' : ''}`} role="status">{saveMessage} You can update it anytime.</p>
+          </section>
+        )}
 
-        <section className="history-section" aria-labelledby="history-title">
-          <div className="history-heading"><div><div className="eyebrow"><span className="eyebrow-dot" /> YOUR LOG</div><h2 id="history-title">Daily history</h2></div><span className="record-count">{records.length} {records.length === 1 ? 'day' : 'days'}</span></div>
-          {records.length === 0 ? <p className="empty-history">Your saved check-ins will appear here.</p> : (
-            <div className="history-table-wrap"><table><thead><tr><th>Date</th><th>Food</th><th>Sleep</th><th>Stress</th><th>Training</th><th>Action</th></tr></thead><tbody>
-              {records.map((record) => <tr key={record.date}><td>{formatDate(record.date)}</td><td>{record.food}</td><td>{record.sleep}</td><td>{record.stress}</td><td>{record.training}</td><td><button className="edit-button" onClick={() => editRecord(record)} type="button">Edit</button></td></tr>)}
-            </tbody></table></div>
-          )}
-        </section>
+        {modalOpen && (
+          <div className="tracker-modal-backdrop" onClick={() => setModalOpen(false)}>
+            <div className="tracker-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="tracker-modal-icon">✓</div>
+              <h3>Success</h3>
+              <p>{saveMessage}</p>
+              <button type="button" className="tracker-modal-button" onClick={() => setModalOpen(false)}>
+                OK
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!showForm && (
+          <section className="history-section" aria-labelledby="history-title">
+            <div className="history-heading"><div><div className="eyebrow"><span className="eyebrow-dot" /> YOUR LOG</div><h2 id="history-title">Daily history</h2></div><span className="record-count">{records.length} {records.length === 1 ? 'day' : 'days'}</span></div>
+            {records.length === 0 ? <p className="empty-history">Your saved check-ins will appear here.</p> : (
+              <div className="history-table-wrap"><table><thead><tr><th>Date</th><th>Food</th><th>Sleep</th><th>Stress</th><th>Training</th><th>Action</th></tr></thead><tbody>
+                {records.map((record) => <tr key={record.date}><td>{formatDate(record.date)}</td><td>{record.food}</td><td>{record.sleep}</td><td>{record.stress}</td><td>{record.training}</td><td><button className="edit-button" onClick={() => editRecord(record)} type="button">Edit</button></td></tr>)}
+              </tbody></table></div>
+            )}
+          </section>
+        )}
       </div>
     </main>
   )
 }
 
-function Home() {
-  const [isDark, setIsDark] = useState(true)
+function App() {
+  return <AuthProvider><AppRoutes /></AuthProvider>
+}
+
+function HomePage() {
+  return (
+    <>
+      <NewNavbar />
+      <NewHero />
+    </>
+  )
+}
+
+function DashboardShell({ initialTab, initialDailyView }: { initialTab?: 'daily' | 'monthly'; initialDailyView?: 'list' | 'form' }) {
+  const { user, logout } = useAuth()
+  const [activeTab, setActiveTab] = useState<'daily' | 'monthly'>(initialTab ?? 'daily')
+  const [dailyView, setDailyView] = useState<'list' | 'form'>(initialDailyView ?? 'list')
 
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }, [isDark])
+    if (initialTab) setActiveTab(initialTab)
+    if (initialDailyView) setDailyView(initialDailyView)
+  }, [initialTab, initialDailyView])
+
+  const menuItems = [
+    { key: 'daily', label: 'Daily Tracker', icon: <FiCalendar size={18} /> },
+    { key: 'monthly', label: 'Monthly Tracker', icon: <FiBarChart2 size={18} /> },
+  ] as const
 
   return (
-    <div className={isDark ? 'dark' : 'light'}>
-      <Navbar />
-      <ThemeToggle isDark={isDark} toggleTheme={() => setIsDark(!isDark)} />
-      <Hero />
-      <About />
-      <Services />
-      <Transformations />
-      <Programs />
-      <Testimonials />
-      <WhyChoose />
-      <Gallery />
-      <FAQ />
-      <Contact />
-      <CTA />
-      <Footer />
-      <FloatingWhatsApp />
-      <ScrollToTop />
+    <div className="dashboard-admin-shell">
+      <aside className="admin-sidebar">
+        <div className="admin-brand">
+          <div className="admin-brand-mark">MF</div>
+          <div>
+            <div className="admin-brand-name">ManuFit</div>
+            <div className="admin-brand-subtitle">Client dashboard</div>
+          </div>
+        </div>
+
+        <nav className="admin-menu" aria-label="Dashboard navigation">
+          {menuItems.map((item) => (
+            <div key={item.key} className="admin-menu-group">
+              <button
+                type="button"
+                className={`admin-menu-item ${activeTab === item.key ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab(item.key)
+                  if (item.key === 'daily') {
+                    setDailyView('list')
+                    window.history.pushState({}, '', '/dailytrack')
+                  } else {
+                    window.history.pushState({}, '', '/monthlytrack')
+                  }
+                }}
+              >
+                <span className="admin-menu-icon">{item.icon}</span>
+                {item.label}
+              </button>
+
+              {item.key === 'daily' && activeTab === 'daily' && (
+                <div className="admin-submenu">
+                  <button
+                    type="button"
+                    className={`admin-submenu-item ${dailyView === 'list' ? 'active' : ''}`}
+                    onClick={() => {
+                      setDailyView('list')
+                      window.history.pushState({}, '', '/dailytrack')
+                    }}
+                  >
+                    Daily Track List
+                  </button>
+                  <button
+                    type="button"
+                    className={`admin-submenu-item ${dailyView === 'form' ? 'active' : ''}`}
+                    onClick={() => {
+                      setDailyView('form')
+                      window.history.pushState({}, '', '/dailytrack/form')
+                    }}
+                  >
+                    Daily Track Form
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </nav>
+
+        <button type="button" className="admin-logout" onClick={() => { logout(); window.location.assign('/'); }}>
+          <FiLogOut size={16} />
+          Sign out
+        </button>
+      </aside>
+
+      <main className="admin-content">
+        <header className="admin-topbar">
+          <div>
+            <p className="admin-kicker">WELCOME BACK</p>
+            <h1>{user?.email ? user.email.split('@')[0] : 'Client'}</h1>
+          </div>
+        </header>
+
+        <div className="admin-panel">
+          {activeTab === 'daily' ? <DailyTrack view={dailyView} /> : <MonthlyTrack />}
+        </div>
+      </main>
     </div>
   )
 }
 
-function App() {
-  if (window.location.pathname === '/dailytrack') return <DailyTrack />
-  if (window.location.pathname === '/monthlytrack') return <MonthlyTrack />
-  return <Home />
+function AppRoutes() {
+  const { user, loading } = useAuth()
+  const currentPath = window.location.pathname
+
+  if (loading) return <main className="auth-page"><p className="auth-loading">Opening your training room...</p></main>
+
+  if (!user) {
+    if (currentPath === '/login') return <Login />
+    if (currentPath === '/dailytrack' || currentPath === '/monthlytrack') return <Login />
+    return <HomePage />
+  }
+
+  if (currentPath === '/' || currentPath === '/dashboard') return <DashboardShell />
+  if (currentPath === '/dailytrack' || currentPath === '/dailytrack/list') return <DashboardShell initialTab="daily" initialDailyView="list" />
+  if (currentPath === '/dailytrack/form') return <DashboardShell initialTab="daily" initialDailyView="form" />
+  if (currentPath === '/monthlytrack') return <DashboardShell initialTab="monthly" />
+  return <ProtectedApp />
 }
 
 export default App
