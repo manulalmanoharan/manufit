@@ -212,6 +212,40 @@ td:first-child { color: #2d3c35; font-weight: 700; }
 .client-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 132px; }
 .client-row .card-kicker { margin-bottom: 10px; }
 .client-row h2 { margin-bottom: 6px; }
+.client-view-button { display: inline-flex; align-items: center; justify-content: center; padding: 10px 16px; border: 0; border-radius: 999px; background: linear-gradient(135deg, #e26f45 0%, #d1615d 100%); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+.client-view-button:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(226, 111, 69, 0.25); }
+.client-detail-page { padding-top: 32px; }
+.client-detail-header { max-width: 1180px; margin: 0 auto 22px; }
+.client-summary { color: #6e6867; max-width: 620px; }
+.client-header-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; color: #665d5b; font-size: 13px; font-weight: 600; }
+.client-detail-card { max-width: 1180px; margin: 0 auto 24px; padding: 24px 28px; border: 1px solid #eadbd1; background: rgba(255,255,255,.75); }
+.date-range-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.range-pill { padding: 9px 14px; border: 1px solid #e6dcd3; border-radius: 999px; background: #fffaf7; color: #655b5a; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
+.range-pill.active { background: #6551aa; border-color: #6551aa; color: #fff; }
+.custom-range-row { display: flex; flex-wrap: wrap; gap: 16px; margin: 8px 0 18px; }
+.custom-range-row label { display: grid; gap: 8px; color: #655b5a; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.custom-range-row input { min-height: 44px; padding: 0 12px; border: 1px solid #ded0c7; border-radius: 6px; background: #fffdfa; color: #3e332e; }
+.summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.summary-card { min-height: 120px; padding: 18px; border: 1px solid #eee3db; background: linear-gradient(180deg, #fff8f4 0%, #fff 100%); }
+.summary-card span { display: block; margin-bottom: 12px; color: #866b60; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.summary-card strong { display: block; color: #2f3d39; font-size: clamp(1.7rem, 2vw, 2.4rem); font-weight: 700; }
+.summary-card small { display: block; margin-top: 8px; color: #675d5a; }
+.section-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
+.section-header h2 { margin: 0; color: #2d3c35; font-size: 1.8rem; }
+.section-header span { color: #7f6d68; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.report-view { min-height: 100vh; padding: 40px 20px; background: linear-gradient(135deg, #f8f2fb 0%, #fffdfc 100%); }
+.report-page { max-width: 1100px; margin: 0 auto; padding: 20px 0; }
+.report-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.report-header h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.2rem); }
+.report-meta { display: flex; flex-wrap: wrap; gap: 16px; padding: 12px 0 18px; color: #5e4e4a; font-size: 13px; font-weight: 600; }
+.report-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.report-section { margin-top: 28px; padding-top: 20px; border-top: 1px solid #eadbd1; }
+.report-section h2 { margin-bottom: 14px; color: #2d3c35; font-size: 1.5rem; }
+
+@media (max-width: 900px) {
+  .summary-grid,
+  .report-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 @media (max-width: 600px) {
   .auth-panel { padding: 32px 24px; }
@@ -223,6 +257,12 @@ td:first-child { color: #2d3c35; font-weight: 700; }
   .profile-card, .report-card { grid-column: span 1; }
   .directory-grid { grid-template-columns: 1fr; }
   .client-row { align-items: flex-start; flex-direction: column; }
+  .client-detail-card { padding: 18px 16px; }
+  .summary-grid,
+  .report-grid { grid-template-columns: 1fr; }
+  .client-header-meta,
+  .report-header,
+  .section-header { align-items: flex-start; flex-direction: column; }
   .tracker-page { padding: 30px 16px 55px; }
   .tracker-header { padding-bottom: 34px; }
   h1 { max-width: 330px; font-size: 3rem; }
