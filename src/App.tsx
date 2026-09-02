@@ -2,7 +2,7 @@
 import MonthlyTrack from './features/monthlytrack/MonthlyTrack'
 import NewHero from './components/NewHero'
 import NewNavbar from './components/NewNavbar'
-import { AuthProvider, Login, ProtectedApp, useAuth } from './auth'
+import { AuthProvider, Login, ProtectedApp, RegisterPage, useAuth } from './auth'
 import { FiBarChart2, FiCalendar, FiLogOut, FiUser } from 'react-icons/fi'
 
 type TrackerRecord = {
@@ -252,10 +252,12 @@ function AppRoutes() {
   if (loading) return <main className="auth-page"><p className="auth-loading">Opening your training room...</p></main>
   if (!user) {
     if (currentPath === '/login') return <Login />
+    if (currentPath === '/register') return <RegisterPage />
     if (currentPath === '/dailytrack' || currentPath === '/monthlytrack' || currentPath === '/report') return <Login />
     return <HomePage />
   }
 
+  if (currentPath === '/register') return <DashboardShell />
   if (currentPath === '/' || currentPath === '/dashboard') return <DashboardShell />
   if (currentPath === '/dailytrack' || currentPath === '/dailytrack/list') return <DashboardShell initialTab="daily" initialDailyView="list" />
   if (currentPath === '/dailytrack/form') return <DashboardShell initialTab="daily" initialDailyView="form" />

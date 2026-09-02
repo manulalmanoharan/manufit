@@ -8,7 +8,15 @@ export const API = 'http://localhost:8787/api'
 type ClientEntry = { id: number; email: string; name: string; goal: string; created_at?: string; clientId?: number | null }
 type RangeKey = 'thisMonth' | 'last30' | 'custom'
 
-type AuthContextValue = { user: User | null; loading: boolean; login: (email: string, password: string) => Promise<string | null>; logout: () => void; changePassword: (password: string) => Promise<string | null>; getDashboard: (clientId?: number) => Promise<DashboardData> }
+type AuthContextValue = {
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<string | null>;
+  register: (data: { name: string; email: string; phone: string; password: string; confirmPassword: string; goal: string; age: number | string; gender: string }) => Promise<string | null>;
+  logout: () => void;
+  changePassword: (password: string) => Promise<string | null>;
+  getDashboard: (clientId?: number) => Promise<DashboardData>
+}
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 const formatDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -55,10 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (!user) { setLoading(false); return }; fetch(`${API}/auth/me`, { headers: authHeaders() }).then((response) => { if (!response.ok) logout(); return response.json() }).catch(() => logout()).finally(() => setLoading(false)) }, [])
   function authHeaders() { return { Authorization: `Bearer ${localStorage.getItem('manufit-token') ?? ''}`, 'Content-Type': 'application/json' } }
   async function login(email: string, password: string) { const response = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) }); const data = await response.json(); if (!response.ok) return data.error ?? 'Unable to sign in'; localStorage.setItem('manufit-token', data.token); localStorage.setItem('manufit-user', JSON.stringify(data.user)); setUser(data.user); return null }
+  async function register(data: { name: string; email: string; phone: string; password: string; confirmPassword: string; goal: string; age: number | string; gender: string }) { const response = await fetch(`${API}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); const payload = await response.json(); if (!response.ok) return payload.error ?? 'Unable to create your account'; localStorage.setItem('manufit-token', payload.token); localStorage.setItem('manufit-user', JSON.stringify(payload.user)); setUser(payload.user); return null }
   function logout() { localStorage.removeItem('manufit-token'); localStorage.removeItem('manufit-user'); setUser(null) }
   async function changePassword(password: string) { const response = await fetch(`${API}/auth/change-password`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ password }) }); const data = await response.json(); if (!response.ok) return data.error ?? 'Unable to update password'; const nextUser = { ...user, mustChangePassword: false } as User; localStorage.setItem('manufit-user', JSON.stringify(nextUser)); setUser(nextUser); return null }
   async function getDashboard(clientId?: number) { const query = clientId ? `?clientId=${clientId}` : ''; const response = await fetch(`${API}/dashboard${query}`, { headers: authHeaders() }); if (!response.ok) throw new Error((await response.json()).error); return response.json() as Promise<DashboardData> }
-  return <AuthContext.Provider value={{ user, loading, login, logout, changePassword, getDashboard }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, login, register, logout, changePassword, getDashboard }}>{children}</AuthContext.Provider>
 }
 export function useAuth() { const context = useContext(AuthContext); if (!context) throw new Error('useAuth must be used inside AuthProvider'); return context }
 
@@ -73,9 +82,36 @@ export function Login() {
       setBusy(false);
       return;
     }
+    const currentUser = JSON.parse(localStorage.getItem('manufit-user') ?? 'null') as User | null;
+    window.location.assign(currentUser?.role === 'trainer' ? '/' : '/dashboard');
+  }
+  return <main className="auth-page"><section className="auth-panel"><div className="auth-mark">MF<span>•</span></div><p className="eyebrow"><span className="eyebrow-dot" /> YOUR TRAINING ROOM</p><h1>Progress, made personal.</h1><p className="auth-intro">Sign in to continue your work with ManuFit.</p><form onSubmit={submit}><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button className="auth-submit" disabled={busy}>{busy ? 'SIGNING IN...' : 'SIGN IN'} <span>→</span></button></form><p className="auth-note">New clients can <a href="/register">register here</a>.</p></section></main>
+}
+
+export function RegisterPage() {
+  const { register } = useAuth();
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '', goal: '', age: '', gender: 'Prefer not to say' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    const message = await register({ ...form, age: form.age ? Number(form.age) : 0 });
+    setBusy(false);
+    if (message) {
+      setError(message);
+      return;
+    }
     window.location.assign('/dashboard');
   }
-  return <main className="auth-page"><section className="auth-panel"><div className="auth-mark">MF<span>•</span></div><p className="eyebrow"><span className="eyebrow-dot" /> YOUR TRAINING ROOM</p><h1>Progress, made personal.</h1><p className="auth-intro">Sign in to continue your work with ManuFit.</p><form onSubmit={submit}><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button className="auth-submit" disabled={busy}>{busy ? 'SIGNING IN...' : 'SIGN IN'} <span>→</span></button></form><p className="auth-note">Client accounts are created privately by your trainer.</p></section></main>
+
+  return <main className="auth-page"><section className="auth-panel" style={{ maxWidth: 640, width: '100%' }}><div className="auth-mark">MF<span>•</span></div><p className="eyebrow"><span className="eyebrow-dot" /> JOIN MANUFIT</p><h1>Create your client account.</h1><p className="auth-intro">Start tracking your progress with a private, client-only dashboard.</p><form onSubmit={submit}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}><label style={{ gridColumn: 'span 2' }}>Name<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label><label>Email<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required /></label><label>Phone<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} required /></label><label>Age<input type="number" min={10} max={120} value={form.age} onChange={(event) => setForm({ ...form, age: event.target.value })} /></label><label>Gender<select value={form.gender} onChange={(event) => setForm({ ...form, gender: event.target.value })}><option>Female</option><option>Male</option><option>Non-binary</option><option>Prefer not to say</option></select></label><label style={{ gridColumn: 'span 2' }}>Goal<input value={form.goal} onChange={(event) => setForm({ ...form, goal: event.target.value })} placeholder="Main fitness goal" /></label><label>Password<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required /></label><label>Confirm password<input type="password" value={form.confirmPassword} onChange={(event) => setForm({ ...form, confirmPassword: event.target.value })} required /></label></div>{error && <p className="auth-error" role="alert">{error}</p>}<button className="auth-submit" disabled={busy}>{busy ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'} <span>→</span></button></form><p className="auth-note">Already have an account? <a href="/login">Log in</a>.</p></section></main>
 }
 
 function PasswordChange() { const { changePassword, logout } = useAuth(); const [password, setPassword] = useState(''); const [error, setError] = useState(''); async function submit(event: FormEvent) { event.preventDefault(); const message = await changePassword(password); if (message) setError(message) }; return <div className="password-card"><p className="eyebrow"><span className="eyebrow-dot" /> FIRST LOGIN</p><h2>Choose your private password.</h2><p>Your temporary password worked. Set a new one before entering your training room.</p><form onSubmit={submit}><input type="password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" required />{error && <p className="auth-error">{error}</p>}<button className="auth-submit">UPDATE PASSWORD <span>→</span></button></form><button className="text-button" onClick={logout}>Sign out</button></div> }

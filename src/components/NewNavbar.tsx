@@ -49,12 +49,19 @@ export default function NewNavbar() {
             </button>
             <a
               href="/login"
+              className="px-4 py-2 rounded-full font-medium transition-colors"
+              style={{ backgroundColor: '#F5E7E0', color: '#3E332E' }}
+            >
+              Log in
+            </a>
+            <a
+              href="/register"
               className="px-6 py-2 rounded-full font-medium text-white transition-colors"
               style={{ backgroundColor: '#3E332E' }}
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2a261e')}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#3E332E')}
             >
-              Client Login
+              Register
             </a>
           </div>
 
@@ -87,10 +94,17 @@ export default function NewNavbar() {
             </button>
             <a
               href="/login"
+              className="block w-full text-center px-4 py-2 rounded-full font-medium"
+              style={{ backgroundColor: '#F5E7E0', color: '#3E332E' }}
+            >
+              Log in
+            </a>
+            <a
+              href="/register"
               className="block w-full text-center px-4 py-2 rounded-full font-medium text-white"
               style={{ backgroundColor: '#3E332E' }}
             >
-              Client Login
+              Register
             </a>
           </div>
         )}
