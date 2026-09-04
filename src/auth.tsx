@@ -1,7 +1,8 @@
 ﻿import { createContext, FormEvent, ReactNode, useContext, useEffect, useState } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
-export type User = { id: number; email: string; role: 'trainer' | 'client'; clientId: number | null; mustChangePassword?: boolean }
+// TEMPORARY TESTING-ONLY AUTH: restore password-based authentication before real clients use this app.
+export type User = { id: number; email: string | null; phone?: string | null; role: 'trainer' | 'client'; clientId: number | null; mustChangePassword?: boolean }
 export type DashboardData = { profile: { name: string; goal: string; phone: string } | null; daily: any[]; monthly: any[]; slots: any[]; reports: any[] }
 export const API = 'http://localhost:8787/api'
 
@@ -11,10 +12,11 @@ type RangeKey = 'thisMonth' | 'last30' | 'custom'
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<string | null>;
-  register: (data: { name: string; email: string; phone: string; password: string; confirmPassword: string; goal: string; age: number | string; gender: string }) => Promise<string | null>;
+  login: (contact: string) => Promise<string | null>;
+  register: (data: { email: string; phone: string }) => Promise<string | null>;
   logout: () => void;
   changePassword: (password: string) => Promise<string | null>;
+  updateProfile: (profile: { name: string; goal: string; age: number | string; gender: string }) => Promise<string | null>;
   getDashboard: (clientId?: number) => Promise<DashboardData>
 }
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -62,21 +64,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(Boolean(user))
   useEffect(() => { if (!user) { setLoading(false); return }; fetch(`${API}/auth/me`, { headers: authHeaders() }).then((response) => { if (!response.ok) logout(); return response.json() }).catch(() => logout()).finally(() => setLoading(false)) }, [])
   function authHeaders() { return { Authorization: `Bearer ${localStorage.getItem('manufit-token') ?? ''}`, 'Content-Type': 'application/json' } }
-  async function login(email: string, password: string) { const response = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) }); const data = await response.json(); if (!response.ok) return data.error ?? 'Unable to sign in'; localStorage.setItem('manufit-token', data.token); localStorage.setItem('manufit-user', JSON.stringify(data.user)); setUser(data.user); return null }
-  async function register(data: { name: string; email: string; phone: string; password: string; confirmPassword: string; goal: string; age: number | string; gender: string }) { const response = await fetch(`${API}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); const payload = await response.json(); if (!response.ok) return payload.error ?? 'Unable to create your account'; localStorage.setItem('manufit-token', payload.token); localStorage.setItem('manufit-user', JSON.stringify(payload.user)); setUser(payload.user); return null }
+  async function login(contact: string) { const response = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact }) }); const data = await response.json(); if (!response.ok) return data.error ?? 'Unable to sign in'; localStorage.setItem('manufit-token', data.token); localStorage.setItem('manufit-user', JSON.stringify(data.user)); setUser(data.user); return null }
+  async function register(data: { email: string; phone: string }) { const response = await fetch(`${API}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); const payload = await response.json(); if (!response.ok) return payload.error ?? 'Unable to create your account'; localStorage.setItem('manufit-token', payload.token); localStorage.setItem('manufit-user', JSON.stringify(payload.user)); setUser(payload.user); return null }
   function logout() { localStorage.removeItem('manufit-token'); localStorage.removeItem('manufit-user'); setUser(null) }
   async function changePassword(password: string) { const response = await fetch(`${API}/auth/change-password`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ password }) }); const data = await response.json(); if (!response.ok) return data.error ?? 'Unable to update password'; const nextUser = { ...user, mustChangePassword: false } as User; localStorage.setItem('manufit-user', JSON.stringify(nextUser)); setUser(nextUser); return null }
+  async function updateProfile(profile: { name: string; goal: string; age: number | string; gender: string }) { const response = await fetch(`${API}/profile`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(profile) }); const data = await response.json(); return response.ok ? null : data.error ?? 'Unable to update your profile' }
   async function getDashboard(clientId?: number) { const query = clientId ? `?clientId=${clientId}` : ''; const response = await fetch(`${API}/dashboard${query}`, { headers: authHeaders() }); if (!response.ok) throw new Error((await response.json()).error); return response.json() as Promise<DashboardData> }
-  return <AuthContext.Provider value={{ user, loading, login, register, logout, changePassword, getDashboard }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, login, register, logout, changePassword, updateProfile, getDashboard }}>{children}</AuthContext.Provider>
 }
 export function useAuth() { const context = useContext(AuthContext); if (!context) throw new Error('useAuth must be used inside AuthProvider'); return context }
 
 export function Login() {
-  const { login } = useAuth(); const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
+  const { login } = useAuth(); const [method, setMethod] = useState<'email' | 'phone'>('email'); const [contact, setContact] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
   async function submit(event: FormEvent) {
     event.preventDefault();
     setBusy(true); setError('');
-    const message = await login(email, password);
+    const message = await login(contact);
     if (message) {
       setError(message);
       setBusy(false);
@@ -85,10 +88,33 @@ export function Login() {
     const currentUser = JSON.parse(localStorage.getItem('manufit-user') ?? 'null') as User | null;
     window.location.assign(currentUser?.role === 'trainer' ? '/' : '/dashboard');
   }
-  return <main className="auth-page"><section className="auth-panel"><div className="auth-mark">MF<span>•</span></div><p className="eyebrow"><span className="eyebrow-dot" /> YOUR TRAINING ROOM</p><h1>Progress, made personal.</h1><p className="auth-intro">Sign in to continue your work with ManuFit.</p><form onSubmit={submit}><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button className="auth-submit" disabled={busy}>{busy ? 'SIGNING IN...' : 'SIGN IN'} <span>→</span></button></form><p className="auth-note">New clients can <a href="/register">register here</a>.</p></section></main>
+  return <main className="auth-page"><section className="auth-panel"><div className="auth-mark">MF<span>•</span></div><p className="eyebrow"><span className="eyebrow-dot" /> YOUR TRAINING ROOM</p><h1>Progress, made personal.</h1><p className="auth-intro">Sign in with the contact method you used to register.</p><form onSubmit={submit}><div className="auth-toggle" role="group" aria-label="Contact method"><button type="button" className={method === 'email' ? 'active' : ''} onClick={() => { setMethod('email'); setContact('') }}>Email</button><button type="button" className={method === 'phone' ? 'active' : ''} onClick={() => { setMethod('phone'); setContact('') }}>Phone</button></div><label>{method === 'email' ? 'Email' : 'Phone'}<input type={method === 'email' ? 'email' : 'text'} value={contact} onChange={(event) => setContact(event.target.value)} required autoComplete={method === 'email' ? 'email' : 'tel'} /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button className="auth-submit" disabled={busy}>{busy ? 'SIGNING IN...' : 'SIGN IN'} <span>→</span></button></form><p className="auth-note">New clients can <a href="/register">register here</a>.</p></section></main>
 }
 
 export function RegisterPage() {
+  const { register } = useAuth();
+  const [method, setMethod] = useState<'email' | 'phone'>('email');
+  const [contact, setContact] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    const message = await register({ email: method === 'email' ? contact : '', phone: method === 'phone' ? contact : '' });
+    setBusy(false);
+    if (message) {
+      setError(message);
+      return;
+    }
+    window.location.assign('/dashboard');
+  }
+
+  return <main className="auth-page"><section className="auth-panel"><div className="auth-mark">MF<span>•</span></div><p className="eyebrow"><span className="eyebrow-dot" /> JOIN MANUFIT</p><h1>Create your client account.</h1><p className="auth-intro">Choose one contact method. You can complete your profile later.</p><form onSubmit={submit}><div className="auth-toggle" role="group" aria-label="Contact method"><button type="button" className={method === 'email' ? 'active' : ''} onClick={() => { setMethod('email'); setContact('') }}>Email</button><button type="button" className={method === 'phone' ? 'active' : ''} onClick={() => { setMethod('phone'); setContact('') }}>Phone</button></div><label>{method === 'email' ? 'Email' : 'Phone'}<input type={method === 'email' ? 'email' : 'text'} value={contact} onChange={(event) => setContact(event.target.value)} required autoComplete={method === 'email' ? 'email' : 'tel'} /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button className="auth-submit" disabled={busy}>{busy ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'} <span>→</span></button></form><p className="auth-note">Already have an account? <a href="/login">Log in</a>.</p></section></main>
+}
+
+export function LegacyRegisterPage() {
   const { register } = useAuth();
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '', goal: '', age: '', gender: 'Prefer not to say' });
   const [error, setError] = useState('');
@@ -102,7 +128,7 @@ export function RegisterPage() {
     }
     setBusy(true);
     setError('');
-    const message = await register({ ...form, age: form.age ? Number(form.age) : 0 });
+    const message = await register({ email: form.email, phone: form.phone });
     setBusy(false);
     if (message) {
       setError(message);
@@ -128,7 +154,9 @@ export function ProtectedApp() {
 function Dashboard() {
   const { user, logout, getDashboard } = useAuth(); const roomId = Number(new URLSearchParams(window.location.search).get('clientId')) || undefined; const [data, setData] = useState<DashboardData | null>(null); const [error, setError] = useState(''); useEffect(() => { getDashboard(roomId).then(setData).catch((reason: Error) => setError(reason.message)) }, []); if (error) return <main className="dashboard-page"><p className="auth-error">{error}</p></main>; return <main className="dashboard-page"><header className="dashboard-header"><div><p className="eyebrow"><span className="eyebrow-dot" /> {user?.role === 'trainer' ? 'TRAINER CONSOLE' : 'YOUR TRAINING ROOM'}</p><h1>{user?.role === 'trainer' && !roomId ? 'The people behind the progress.' : `Welcome back${data?.profile?.name ? `, ${data.profile.name}` : ''}.`}</h1></div><button className="text-button" onClick={logout}>Sign out</button></header>{user?.role === 'trainer' && !roomId ? <TrainerHome /> : <ClientHome data={data} roomId={roomId} />}</main>
 }
-function ClientHome({ data, roomId }: { data: DashboardData | null; roomId?: number }) { const suffix = roomId ? `?clientId=${roomId}` : ''; return <div className="dashboard-grid"><section className="dashboard-card profile-card"><span className="card-kicker">PROFILE</span><h2>{data?.profile?.name ?? 'Your profile'}</h2><p>{data?.profile?.goal || 'Your goals will appear here.'}</p></section><section className="dashboard-card"><span className="card-kicker">DAILY TRACKER</span><strong>{data?.daily.length ?? 0}</strong><p>check-ins recorded</p><a href={`/dailytrack${suffix}`}>Open daily tracker →</a></section><section className="dashboard-card"><span className="card-kicker">MONTHLY PROGRESS</span><strong>{data?.monthly.length ?? 0}</strong><p>measurements recorded</p><a href={`/monthlytrack${suffix}`}>Open progress tracker →</a></section><section className="dashboard-card"><span className="card-kicker">UPCOMING SESSIONS</span><strong>{data?.slots.length ?? 0}</strong><p>sessions on the calendar</p></section><section className="dashboard-card report-card"><span className="card-kicker">PROGRESS REPORTS</span>{data?.reports.length ? data.reports.map((report) => <div key={report.id}><h3>{report.title}</h3><p>{report.body}</p></div>) : <p>Your trainer's reports will appear here.</p>}</section></div> }
+function ClientHome({ data, roomId }: { data: DashboardData | null; roomId?: number }) { return <><ProfileCompletionPrompt visible={Boolean(data && !data.profile?.name)} /><LegacyClientHome data={data} roomId={roomId} /></> }
+function ProfileCompletionPrompt({ visible }: { visible: boolean }) { const { updateProfile } = useAuth(); const [dismissed, setDismissed] = useState(() => localStorage.getItem('manufit-profile-dismissed') === '1'); const [form, setForm] = useState({ name: '', goal: '', age: '', gender: '' }); const [message, setMessage] = useState(''); if (!visible || dismissed) return null; async function save(event: FormEvent) { event.preventDefault(); const error = await updateProfile({ ...form, age: form.age ? Number(form.age) : '' }); if (error) setMessage(error); else { setMessage('Profile saved.'); setDismissed(true); } } return <section className="dashboard-card profile-prompt"><span className="card-kicker">OPTIONAL PROFILE</span><h2>Complete your profile</h2><p>You can do this now or continue to your dashboard.</p><form onSubmit={save}><input placeholder="Name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /><input placeholder="Main goal" value={form.goal} onChange={(event) => setForm({ ...form, goal: event.target.value })} /><input type="number" placeholder="Age" value={form.age} onChange={(event) => setForm({ ...form, age: event.target.value })} /><input placeholder="Gender" value={form.gender} onChange={(event) => setForm({ ...form, gender: event.target.value })} /><button className="auth-submit">SAVE PROFILE</button></form>{message && <p role="status">{message}</p>}<button type="button" className="text-button" onClick={() => { localStorage.setItem('manufit-profile-dismissed', '1'); setDismissed(true) }}>Skip for now</button></section> }
+function LegacyClientHome({ data, roomId }: { data: DashboardData | null; roomId?: number }) { const suffix = roomId ? `?clientId=${roomId}` : ''; return <div className="dashboard-grid"><section className="dashboard-card profile-card"><span className="card-kicker">PROFILE</span><h2>{data?.profile?.name ?? 'Your profile'}</h2><p>{data?.profile?.goal || 'Your goals will appear here.'}</p></section><section className="dashboard-card"><span className="card-kicker">DAILY TRACKER</span><strong>{data?.daily.length ?? 0}</strong><p>check-ins recorded</p><a href={`/dailytrack${suffix}`}>Open daily tracker →</a></section><section className="dashboard-card"><span className="card-kicker">MONTHLY PROGRESS</span><strong>{data?.monthly.length ?? 0}</strong><p>measurements recorded</p><a href={`/monthlytrack${suffix}`}>Open progress tracker →</a></section><section className="dashboard-card"><span className="card-kicker">UPCOMING SESSIONS</span><strong>{data?.slots.length ?? 0}</strong><p>sessions on the calendar</p></section><section className="dashboard-card report-card"><span className="card-kicker">PROGRESS REPORTS</span>{data?.reports.length ? data.reports.map((report) => <div key={report.id}><h3>{report.title}</h3><p>{report.body}</p></div>) : <p>Your trainer's reports will appear here.</p>}</section></div> }
 function TrainerHome() { return <div className="dashboard-grid"><section className="dashboard-card profile-card"><span className="card-kicker">CLIENT DIRECTORY</span><h2>Client rooms</h2><p>Private profiles and progress, all in one place.</p><a href="/admin/clients">Open client directory →</a></section><section className="dashboard-card"><span className="card-kicker">QUICK ADD</span><p>Create a client account, then hand over their temporary password securely.</p><a href="/admin/clients">Add a client →</a></section></div> }
 
 function TrainerClients() {

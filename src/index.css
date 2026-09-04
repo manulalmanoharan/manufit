@@ -154,6 +154,9 @@ td:first-child { color: #2d3c35; font-weight: 700; }
 .auth-panel label, .password-card label { display: grid; gap: 8px; color: #655a54; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .auth-panel input, .password-card input { width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid #ded0c7; border-radius: 4px; color: #3e332e; background: #fffdfa; font: 15px 'Inter', sans-serif; }
 .auth-submit { display: flex; align-items: center; justify-content: space-between; min-height: 52px; margin-top: 8px; padding: 0 17px; border: 0; border-radius: 4px; color: #fff; background: #e26f45; cursor: pointer; font-size: 11px; font-weight: 700; letter-spacing: .13em; }
+.auth-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+.auth-toggle button { flex: 1; min-height: 42px; border: 1px solid #d9d2cb; border-radius: 4px; color: #6d625a; background: transparent; cursor: pointer; }
+.auth-toggle button.active { border-color: #315b47; color: #fff; background: #315b47; }
 .auth-submit:hover { background: #c95c37; transform: translateY(-2px); }
 .auth-submit span { font-size: 22px; font-weight: 400; }
 .auth-note, .auth-loading { margin-top: 22px; color: #958980; font-size: 12px; line-height: 1.5; }

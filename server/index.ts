@@ -43,12 +43,27 @@ app.use(express.json({ limit: '2mb' }))
 db.exec(`
   PRAGMA foreign_keys = ON;
   CREATE TABLE IF NOT EXISTS profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER UNIQUE NOT NULL, name TEXT NOT NULL, goal TEXT DEFAULT '', phone TEXT DEFAULT '', age INTEGER, gender TEXT DEFAULT '', FOREIGN KEY(client_id) REFERENCES users(id) ON DELETE CASCADE);
-  CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL COLLATE NOCASE, password_hash TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('trainer', 'client')), client_id INTEGER, temp_password INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+  CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT COLLATE NOCASE, phone TEXT, password_hash TEXT, role TEXT NOT NULL CHECK(role IN ('trainer', 'client')), client_id INTEGER, temp_password INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS daily_tracking (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, date TEXT NOT NULL, food TEXT NOT NULL, sleep TEXT NOT NULL, stress TEXT NOT NULL, training TEXT NOT NULL, submitted_by TEXT NOT NULL DEFAULT 'Client', UNIQUE(client_id, date), FOREIGN KEY(client_id) REFERENCES users(id) ON DELETE CASCADE);
   CREATE TABLE IF NOT EXISTS monthly_tracking (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, date TEXT NOT NULL, weight REAL NOT NULL, weight_unit TEXT NOT NULL, waist REAL NOT NULL, waist_unit TEXT NOT NULL, chest REAL, hips REAL, arms REAL, thighs REAL, photos TEXT NOT NULL DEFAULT '[]', UNIQUE(client_id, date), FOREIGN KEY(client_id) REFERENCES users(id) ON DELETE CASCADE);
   CREATE TABLE IF NOT EXISTS slots (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, starts_at TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'upcoming', FOREIGN KEY(client_id) REFERENCES users(id) ON DELETE CASCADE);
   CREATE TABLE IF NOT EXISTS progress_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(client_id) REFERENCES users(id) ON DELETE CASCADE);
 `)
+
+const userColumns = db.prepare('PRAGMA table_info(users)').all() as any[]
+if (!userColumns.some((column) => column.name === 'phone')) db.exec('ALTER TABLE users ADD COLUMN phone TEXT')
+if (userColumns.some((column) => (column.name === 'email' || column.name === 'password_hash') && column.notnull)) {
+  db.pragma('foreign_keys = OFF')
+  db.pragma('legacy_alter_table = ON')
+  db.exec('ALTER TABLE users RENAME TO users_legacy')
+  db.exec("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT COLLATE NOCASE, phone TEXT, password_hash TEXT, role TEXT NOT NULL CHECK(role IN ('trainer', 'client')), client_id INTEGER, temp_password INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
+  db.exec('INSERT INTO users (id, email, password_hash, role, client_id, temp_password, created_at) SELECT id, email, password_hash, role, client_id, temp_password, created_at FROM users_legacy')
+  db.exec('DROP TABLE users_legacy')
+  db.pragma('legacy_alter_table = OFF')
+  db.pragma('foreign_keys = ON')
+}
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users(email) WHERE email IS NOT NULL AND email <> \'\'')
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_phone_unique ON users(phone) WHERE phone IS NOT NULL AND phone <> \'\'')
 
 const profileColumns = db.prepare('PRAGMA table_info(profiles)').all() as any[]
 for (const column of ['age', 'gender']) {
@@ -100,56 +115,55 @@ function scopedClientId(req: AuthRequest, requestedId?: string) {
 }
 
 app.post('/api/auth/register', (req, res) => {
-  const name = String(req.body.name ?? '').trim()
   const email = String(req.body.email ?? '').trim().toLowerCase()
   const phone = String(req.body.phone ?? '').trim()
-  const password = String(req.body.password ?? '')
-  const confirmPassword = String(req.body.confirmPassword ?? '')
-  const goal = String(req.body.goal ?? '').trim()
-  const age = Number(req.body.age ?? 0)
-  const gender = String(req.body.gender ?? '').trim()
 
-  if (!name || !email || !phone || !password || !confirmPassword) {
-    return res.status(400).json({ error: 'Name, email, phone, and password are required' })
-  }
-  if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' })
-  if (password !== confirmPassword) return res.status(400).json({ error: 'Passwords do not match' })
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address' })
+  if (!email && !phone) return res.status(400).json({ error: 'Email or phone is required' })
 
   try {
     const createdUserId = db.transaction(() => {
-      const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email) as any
+      const existingUser = db.prepare('SELECT id FROM users WHERE (email IS NOT NULL AND email = ?) OR (phone IS NOT NULL AND phone = ?)').get(email || null, phone || null) as any
       if (existingUser) throw new Error('EMAIL_IN_USE')
 
-      const user = db.prepare('INSERT INTO users (email, password_hash, role, temp_password) VALUES (?, ?, ?, 0)').run(email, bcrypt.hashSync(password, 12), 'client')
+      const user = db.prepare('INSERT INTO users (email, phone, password_hash, role, temp_password) VALUES (?, ?, NULL, ?, 0)').run(email || null, phone || null, 'client')
       const clientId = Number(user.lastInsertRowid)
       db.prepare('UPDATE users SET client_id = id WHERE id = ?').run(clientId)
-      db.prepare('INSERT INTO profiles (client_id, name, goal, phone, age, gender) VALUES (?, ?, ?, ?, ?, ?)').run(clientId, name, goal, phone, Number.isFinite(age) && age > 0 ? age : null, gender)
+      db.prepare('INSERT INTO profiles (client_id, name, goal, phone) VALUES (?, ?, ?, ?)').run(clientId, '', '', phone)
       return clientId
     })()
 
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(createdUserId) as any
     return res.status(201).json({
       token: signUser(user),
-      user: { id: user.id, email: user.email, role: user.role, clientId: user.client_id, mustChangePassword: Boolean(user.temp_password) },
+      user: { id: user.id, email: user.email, phone: user.phone, role: user.role, clientId: user.client_id, mustChangePassword: false },
     })
   } catch (error) {
     if (error instanceof Error && error.message === 'EMAIL_IN_USE') {
-      return res.status(409).json({ error: 'That email is already registered' })
+      return res.status(409).json({ error: 'That contact is already registered' })
     }
     return res.status(500).json({ error: 'Unable to create your account right now' })
   }
 })
 
 app.post('/api/auth/login', (req, res) => {
-  const email = String(req.body.email ?? '').trim().toLowerCase()
-  const password = String(req.body.password ?? '')
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ error: 'Invalid email or password' })
-  return res.json({ token: signUser(user), user: { id: user.id, email: user.email, role: user.role, clientId: user.client_id, mustChangePassword: Boolean(user.temp_password) } })
+  const contact = String(req.body.contact ?? '').trim()
+  if (!contact) return res.status(400).json({ error: 'Email or phone is required' })
+  const normalizedContact = contact.toLowerCase()
+  const user = db.prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE OR phone = ?').get(normalizedContact, contact) as any
+  if (!user) return res.status(401).json({ error: 'No account found for that contact' })
+  return res.json({ token: signUser(user), user: { id: user.id, email: user.email, phone: user.phone, role: user.role, clientId: user.client_id, mustChangePassword: false } })
 })
 
 app.get('/api/auth/me', requireAuth, (req: AuthRequest, res) => res.json({ user: req.user }))
+app.patch('/api/profile', requireAuth, (req: AuthRequest, res) => {
+  const name = String(req.body.name ?? '').trim()
+  const goal = String(req.body.goal ?? '').trim()
+  const age = Number(req.body.age ?? 0)
+  const gender = String(req.body.gender ?? '').trim()
+  if (!req.user?.clientId) return res.status(400).json({ error: 'A client profile is required' })
+  db.prepare('UPDATE profiles SET name = ?, goal = ?, age = ?, gender = ? WHERE client_id = ?').run(name, goal, Number.isFinite(age) && age > 0 ? age : null, gender, req.user.clientId)
+  return res.json({ ok: true })
+})
 app.post('/api/auth/change-password', requireAuth, (req: AuthRequest, res) => {
   const password = String(req.body.password ?? '')
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' })
