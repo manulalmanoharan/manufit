@@ -259,6 +259,7 @@ function AppRoutes() {
 
   if (currentPath === '/register') return <DashboardShell />
   if (currentPath === '/' || currentPath === '/dashboard') return <DashboardShell />
+  if (currentPath === '/profile') return <ProtectedApp />
   if (currentPath === '/dailytrack' || currentPath === '/dailytrack/list') return <DashboardShell initialTab="daily" initialDailyView="list" />
   if (currentPath === '/dailytrack/form') return <DashboardShell initialTab="daily" initialDailyView="form" />
   if (currentPath === '/monthlytrack') return <DashboardShell initialTab="monthly" />
